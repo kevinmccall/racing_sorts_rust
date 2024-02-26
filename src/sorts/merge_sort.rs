@@ -37,6 +37,6 @@ mod tests {
 
     #[test]
     fn test_merge_better() {
-        rec_test_sort::<u32>(1000, merge_sort);
+        rec_test_sort(1000, merge_sort);
     }
 }

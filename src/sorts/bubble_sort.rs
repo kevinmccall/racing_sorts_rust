@@ -17,6 +17,6 @@ mod tests {
 
     #[test]
     fn test_bubble() {
-        test_sort::<u32>(1000, bubble_sort);
+        test_sort(1000, bubble_sort);
     }
 }
