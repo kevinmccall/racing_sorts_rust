@@ -12,7 +12,7 @@ use crate::sorts::quick_sorter::QuickSorter;
 /// I am borrowing some sorts from the internet: https://www.kirillvasiltsov.com/writing/sorting-algorithms-in-rust/
 
 pub trait SortRunner<T: PartialOrd> {
-    fn sort(&self, sender: Sender<SortMessage<T>>);
+    fn sort(&mut self);
 }
 
 pub struct SortMessage<T> {
@@ -30,8 +30,8 @@ pub fn sort_manager(data: Vec<u8>) {
         let sender = sender.clone();
         let data = data.clone();
         thread::spawn(move || {
-            let sort_runner = QuickSorter::new(data, i);
-            sort_runner.sort(sender);
+            let mut sort_runner = QuickSorter::new(data, i, sender);
+            sort_runner.sort();
         });
     }
     drop(sender);
