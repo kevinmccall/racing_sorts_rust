@@ -1,46 +1,28 @@
-use std::sync::{mpsc::Sender, Arc, Condvar, Mutex};
+use std::sync::mpsc::Sender;
 
 use crate::racer::{SortMessage, SortRunner};
 
-pub struct BubbleSorter<T: PartialOrd> {
-    data: Arc<Mutex<Vec<T>>>,
-    // TODO make this have a boolean in case of early wakeups
-    condvar: Arc<Condvar>,
-    id: u8,
+use super::SortBase;
+
+pub struct BubbleSorter<'a, T: PartialOrd> {
+    sortbase: SortBase<'a, T>,
 }
 
-impl<T: PartialOrd> BubbleSorter<T> {
-    pub fn new(data: Vec<T>, id: u8) -> Self {
+impl<'a, T: PartialOrd> BubbleSorter<'a, T> {
+    pub fn new(data: Vec<T>, id: u8, sender: Sender<SortMessage<T>>) -> Self {
         BubbleSorter {
-            data: Arc::new(Mutex::new(data)),
-            condvar: Arc::new(Condvar::new()),
-            id,
+            sortbase: SortBase::new(data, id, sender),
         }
     }
 }
 
-impl<T: PartialOrd> SortRunner<T> for BubbleSorter<T> {
-    fn sort(&self, sender: Sender<SortMessage<T>>) {
-        let mut data = self.data.lock().unwrap();
-        let message = SortMessage {
-            id: self.id,
-            data: self.data.clone(),
-            condvar: self.condvar.clone(),
-        };
-        sender.send(message).unwrap();
-        data = self.condvar.wait(data).unwrap();
-
-        for i in 0..data.len() {
-            for j in i + 1..data.len() {
-                if data[i] > data[j] {
-                    data.swap(i, j);
-                    let message = SortMessage {
-                        id: self.id,
-                        data: self.data.clone(),
-                        condvar: self.condvar.clone(),
-                    };
-                    sender.send(message).unwrap();
-                    data = self.condvar.wait(data).unwrap();
+impl<'a, T: PartialOrd> SortRunner<T> for BubbleSorter<'a, T> {
+    fn sort(&mut self) {
+        self.sortbase.notify();
+        for i in 0..self.sortbase.data().len() {
+            for j in i + 1..self.sortbase.data().len() {
+                if self.sortbase.data()[i] > self.sortbase.data()[j] {
+                    self.sortbase.swap(i, j);
                 }
             }
         }
