@@ -17,19 +17,23 @@ impl ScreenManager {
         let manager = ScreenManager {
             db: Database::from_env().unwrap()
         };
-        manager.db.get::<cap::EnterCaMode>().unwrap().expand().to(io::stdout()).unwrap();
         manager
     }
 
     pub fn string_at_pos(&self, string: &str, row: u32, col: u32) {
-        let info = Database::from_env().unwrap();
-        info.get::<cap::CursorAddress>().unwrap().expand().x(col).y(row).to(io::stdout()).unwrap();
+        self.db.get::<cap::CursorAddress>().unwrap().expand().x(col).y(row).to(io::stdout()).unwrap();
         print!("{}", string);
     }
-}
 
-impl Drop for ScreenManager {
-    fn drop(&mut self) {
-        self.db.get::<cap::ExitCaMode>().unwrap().expand().to(io::stdout());
+    pub fn clear_screen(&self) {
+        self.db.get::<cap::ClearScreen>().unwrap().expand().to(io::stdout()).unwrap();
+    }
+
+    pub fn get_num_cols(&self) -> i32 {
+        self.db.get::<cap::Columns>().unwrap().0
+    }
+
+    pub fn get_num_rows(&self) -> i32 {
+        self.db.get::<cap::Lines>().unwrap().0
     }
 }
