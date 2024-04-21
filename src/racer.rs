@@ -1,5 +1,4 @@
 use std::sync::mpsc;
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::sync::Condvar;
 use std::sync::Mutex;
@@ -8,19 +7,18 @@ use std::time::Duration;
 use std::u8;
 
 use crate::screen::ScreenManager;
-use crate::sorts::bubble_sorter::BubbleSorter;
-use crate::sorts::quick_sorter::QuickSorter;
+use crate::sorts::bubble_sorter::bubble_sort;
+use crate::sorts::quick_sorter::quick_sort;
+use crate::sorts::SortBase;
+use crate::sorts::SortProgress;
 
 /// I am borrowing some sorts from the internet: https://www.kirillvasiltsov.com/writing/sorting-algorithms-in-rust/
-
-pub trait SortRunner<T: PartialOrd> {
-    fn sort(&mut self);
-}
 
 pub struct SortMessage<T> {
     pub id: u8,
     pub data: Arc<Mutex<Vec<T>>>,
     pub condvar: Arc<Condvar>,
+    pub progress: SortProgress
 }
 
 pub fn sort_manager(data: Vec<u8>) {
@@ -34,8 +32,8 @@ pub fn sort_manager(data: Vec<u8>) {
         let sender = sender.clone();
         let data = data.clone();
         thread::spawn(move || {
-            let mut sort_runner = QuickSorter::new(data, i, sender);
-            sort_runner.sort();
+            let sort_runner = SortBase::new(data, i, sender);
+            sort_runner.sort(bubble_sort);
         });
     }
     drop(sender);

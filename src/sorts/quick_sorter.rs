@@ -1,50 +1,33 @@
-use std::sync::mpsc::Sender;
+use super::SortProgress;
 
-use crate::racer::{SortMessage, SortRunner};
-
-use super::SortBase;
-
-pub struct QuickSorter<'a, T: PartialOrd> {
-    sb: SortBase<'a, T>,
+pub fn quick_sort<T: PartialOrd>(array: &mut [T], snapshot: &mut dyn FnMut(SortProgress)) {
+    let start = 0;
+    let end = array.len() - 1;
+    snapshot(SortProgress::Start);
+    quick_sort_partition(array, start, end as isize, snapshot);
+    snapshot(SortProgress::End);
 }
 
-impl<'a, T: PartialOrd> QuickSorter<'a, T> {
-    pub fn new(data: Vec<T>, id: u8, sender: Sender<SortMessage<T>>) -> Self {
-        QuickSorter {
-            sb: SortBase::new(data, id, sender),
-        }
-    }
-
-    fn quick_sort_partition(&mut self, start: isize, end: isize) {
-        if start < end && end - start >= 1 {
-            let pivot = self.partition(start as isize, end as isize);
-            self.quick_sort_partition(start, pivot - 1);
-            self.quick_sort_partition(pivot + 1, end);
-        }
-    }
-
-    fn partition(&mut self, l: isize, h: isize) -> isize {
-        let mut i = l - 1; // Index of the smaller element
-        for j in l..h {
-            if self.sb.data()[j as usize] <= self.sb.data()[h as usize] {
-                i = i + 1;
-                // println!("1swap {} and {}", i, j);
-                self.sb.swap(i as usize, j as usize);
-            }
-        }
-        // println!("2swap {} and {}", i + 1, h);
-        self.sb.swap((i + 1) as usize, h as usize);
-
-        i + 1
+fn quick_sort_partition<T: PartialOrd>(array: &mut [T], start: isize, end: isize, snapshot: &mut dyn FnMut(SortProgress)) {
+    if start < end && end - start >= 1 {
+    let pivot = partition(array, start as isize, end as isize, snapshot);
+    quick_sort_partition(array, start, pivot - 1, snapshot);
+    quick_sort_partition(array, pivot + 1, end, snapshot);
     }
 }
 
-impl<'a, T: PartialOrd> SortRunner<T> for QuickSorter<'a, T> {
-    fn sort(&mut self) {
-        self.sb.notify();
+fn partition<T: PartialOrd>(array: &mut [T], l: isize, h: isize, snapshot: &mut dyn FnMut(SortProgress)) -> isize {
+    let mut i = l - 1; // Index of the smaller element
 
-        let start = 0;
-        let end = self.sb.data().len() - 1;
-        self.quick_sort_partition(start, end as isize);
+    for j in l..h {
+        if array[j as usize] <= array[h as usize] {
+            i = i + 1;
+            array.swap(i as usize, j as usize);
+            snapshot(SortProgress::InProgress);
+        }
     }
+
+    array.swap((i + 1) as usize, h as usize);
+    snapshot(SortProgress::InProgress);
+    i + 1
 }

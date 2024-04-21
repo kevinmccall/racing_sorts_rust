@@ -1,64 +1,60 @@
-use std::sync::{mpsc::Sender, Arc, Condvar, Mutex, MutexGuard};
+use std::{cell::OnceCell, fmt::Debug, sync::{mpsc::Sender, Arc, Condvar, Mutex}};
 
-use crate::racer::{SortMessage, SortRunner};
+use crate::racer::SortMessage;
 
 pub mod bubble_sorter;
 pub mod quick_sorter;
 
-// fn get_sorter<T: PartialOrd + 'static>(
-//     data: Vec<T>,
-//     sort_name: &str,
-//     id: u8,
-// ) -> Option<Box<dyn SortRunner<T>>> {
-//     match sort_name {
-//         "bubble_sort" => Some(Box::new(bubble_sorter::BubbleSorter::new(data, id))),
-//         "quick_sort" => Some(Box::new(quick_sorter::QuickSorter::new(data, id))),
-//         _ => None,
-//     }
-// }
+fn get_sort<T: PartialOrd>(
+    sort_name: &str,
+) -> Option<fn(&mut [T], &mut dyn FnMut(SortProgress))> {
+    match sort_name {
+        "bubble_sort" => Some(bubble_sorter::bubble_sort),
+        "quick_sort" => Some(quick_sorter::quick_sort),
+        _ => None,
+    }
+}
 
-pub struct SortBase<'a, T: PartialOrd> {
+pub enum SortProgress {
+    Start,
+    InProgress,
+    End
+}
+
+pub struct SortBase<T: PartialOrd + Debug> {
     id: u8,
-    guard: MutexGuard<'a, Vec<T>>,
     // TODO make this have a boolean in case of early wakeups
     data: Arc<Mutex<Vec<T>>>,
     condvar: Arc<Condvar>,
     sender: Sender<SortMessage<T>>,
 }
 
-impl<'a, T: PartialOrd> SortBase<'a, T> {
+impl<T: PartialOrd + Debug> SortBase<T> {
     pub fn new(data: Vec<T>, id: u8, sender: Sender<SortMessage<T>>) -> Self {
         let my_arc = Arc::new(Mutex::new(data));
-        let guard = my_arc.lock().unwrap();
         SortBase {
             data: my_arc,
-            guard,
             id,
             condvar: Arc::new(Condvar::new()),
             sender,
         }
     }
 
-    pub fn id(&self) -> u8 {
-        self.id
-    }
-
-    pub fn swap(&mut self, i: usize, j: usize) {
-        self.guard.swap(i, j);
-        self.notify();
-    }
-
-    pub fn notify(&mut self) {
-        let message = SortMessage {
-            id: self.id,
-            data: self.data.clone(),
-            condvar: self.condvar.clone(),
+    pub fn sort(&self, sort_fn: fn(&mut [T], &mut dyn FnMut(SortProgress))) {
+        let mut data = OnceCell::new();
+        data.set(self.data.lock().unwrap()).unwrap();
+        let mut snapshot = |progress: SortProgress| {
+            let message = SortMessage {
+                id: self.id,
+                data: self.data.clone(),
+                condvar: self.condvar.clone(),
+                progress
+            };
+            self.sender.send(message).unwrap();
+            // let mut lock = data.take().unwrap();
+            // lock = self.condvar.wait(lock).unwrap();
+            // data.set(lock);
         };
-        self.sender.send(message).unwrap();
-        self.guard = self.condvar.wait(self.guard).unwrap();
-    }
-
-    pub fn data(&self) -> &Vec<T> {
-        &*self.guard
+        sort_fn(data.get_mut().unwrap(), &mut snapshot);
     }
 }
