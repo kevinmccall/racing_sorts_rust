@@ -1,9 +1,9 @@
-use std::sync::{mpsc::Sender, Arc, Condvar, Mutex, MutexGuard};
+use std::{cell::{OnceCell, RefCell}, sync::{mpsc::Sender, Arc, Condvar, Mutex, MutexGuard}};
 
 use crate::racer::{SortMessage, SortRunner};
 
-pub mod bubble_sorter;
-pub mod quick_sorter;
+// pub mod bubble_sorter;
+// pub mod quick_sorter;
 
 // fn get_sorter<T: PartialOrd + 'static>(
 //     data: Vec<T>,
@@ -19,20 +19,18 @@ pub mod quick_sorter;
 
 pub struct SortBase<'a, T: PartialOrd> {
     id: u8,
-    guard: MutexGuard<'a, Vec<T>>,
+    guard: OnceCell<MutexGuard<'a, Vec<T>>>,
     // TODO make this have a boolean in case of early wakeups
-    data: Arc<Mutex<Vec<T>>>,
+    data: &'a Arc<Mutex<Vec<T>>>,
     condvar: Arc<Condvar>,
     sender: Sender<SortMessage<T>>,
 }
 
 impl<'a, T: PartialOrd> SortBase<'a, T> {
-    pub fn new(data: Vec<T>, id: u8, sender: Sender<SortMessage<T>>) -> Self {
-        let my_arc = Arc::new(Mutex::new(data));
-        let guard = my_arc.lock().unwrap();
+    pub fn new(data: &'a Arc<Mutex<Vec<T>>>, id: u8, sender: Sender<SortMessage<T>>) -> Self {
         SortBase {
-            data: my_arc,
-            guard,
+            data,
+            guard: OnceCell::new(),
             id,
             condvar: Arc::new(Condvar::new()),
             sender,
@@ -44,7 +42,7 @@ impl<'a, T: PartialOrd> SortBase<'a, T> {
     }
 
     pub fn swap(&mut self, i: usize, j: usize) {
-        self.guard.swap(i, j);
+        self.guard.get_mut().unwrap().swap(i, j);
         self.notify();
     }
 
@@ -55,10 +53,15 @@ impl<'a, T: PartialOrd> SortBase<'a, T> {
             condvar: self.condvar.clone(),
         };
         self.sender.send(message).unwrap();
-        self.guard = self.condvar.wait(self.guard).unwrap();
+        let mut lock = self.guard.take().unwrap();
+        lock = self.condvar.wait(lock).unwrap();
+        self.guard.set(lock);
     }
 
     pub fn data(&self) -> &Vec<T> {
-        &*self.guard
+        self.guard.get_or_init(|| {
+            let guard = self.data.lock().unwrap();
+            guard
+        })
     }
 }
