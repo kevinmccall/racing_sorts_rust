@@ -1,4 +1,4 @@
-use std::{cell::OnceCell, fmt::Debug, sync::{mpsc::Sender, Arc, Condvar, Mutex}};
+use std::{borrow::BorrowMut, cell::OnceCell, fmt::Debug, sync::{mpsc::Sender, Arc, Mutex}, thread};
 
 use crate::racer::SortMessage;
 
@@ -25,7 +25,6 @@ pub struct SortBase<T: PartialOrd + Debug> {
     id: u8,
     // TODO make this have a boolean in case of early wakeups
     data: Arc<Mutex<Vec<T>>>,
-    condvar: Arc<Condvar>,
     sender: Sender<SortMessage<T>>,
 }
 
@@ -35,26 +34,26 @@ impl<T: PartialOrd + Debug> SortBase<T> {
         SortBase {
             data: my_arc,
             id,
-            condvar: Arc::new(Condvar::new()),
             sender,
         }
     }
 
     pub fn sort(&self, sort_fn: fn(&mut [T], &mut dyn FnMut(SortProgress))) {
-        let mut data = OnceCell::new();
-        data.set(self.data.lock().unwrap()).unwrap();
+        let mut data = self.data.lock().unwrap();
         let mut snapshot = |progress: SortProgress| {
+            println!("I have been called upon");
             let message = SortMessage {
                 id: self.id,
                 data: self.data.clone(),
-                condvar: self.condvar.clone(),
+                thread: thread::current(),
                 progress
             };
             self.sender.send(message).unwrap();
-            // let mut lock = data.take().unwrap();
-            // lock = self.condvar.wait(lock).unwrap();
-            // data.set(lock);
+            println!("I have successfully sent a message");
+            drop(data);
+            thread::park();
+            println!("I arise from my slumber");
         };
-        sort_fn(data.get_mut().unwrap(), &mut snapshot);
+        sort_fn(&mut data, &mut snapshot);
     }
 }

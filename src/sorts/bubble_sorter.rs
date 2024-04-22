@@ -1,7 +1,9 @@
 use super::SortProgress;
 
 pub fn bubble_sort<T: PartialOrd>(data: &mut [T], snapshot: &mut dyn FnMut(SortProgress)) {
+    println!("I have begun bubble sorting");
     snapshot(SortProgress::Start);
+    println!("I have successfully sent one snapshot!! (no)");
     for i in 0..data.len() {
         for j in i + 1..data.len() {
             if data[i] > data[j] {
