@@ -9,7 +9,10 @@ use std::u8;
 
 use crate::screen::ScreenManager;
 use crate::sorts::bubble_sorter::BubbleSorter;
+use crate::sorts::insertion_sorter::InsertionSorter;
 use crate::sorts::quick_sorter::QuickSorter;
+use crate::sorts::selection_sorter::SelectionSorter;
+use crate::sorts::shell_sorter::ShellSorter;
 
 /// I am borrowing some sorts from the internet: https://www.kirillvasiltsov.com/writing/sorting-algorithms-in-rust/
 
@@ -34,7 +37,7 @@ pub fn sort_manager(data: Vec<u8>) {
         let sender = sender.clone();
         let data = data.clone();
         thread::spawn(move || {
-            let sort_runner = QuickSorter::new(data, i);
+            let sort_runner = ShellSorter::new(data, i);
             sort_runner.sort(sender);
         });
     }
@@ -44,7 +47,6 @@ pub fn sort_manager(data: Vec<u8>) {
         let data = message.data.lock().unwrap();
         let display = std::str::from_utf8(&data).unwrap_or("error");
         let on_screen = format!("{}: {:?}", message.id, display);
-        thread::sleep(Duration::from_millis(1000));
         // manager.string_at_pos(&on_screen, message.id as u32, 0);
         println!("{}", on_screen);
         message.condvar.notify_one();
