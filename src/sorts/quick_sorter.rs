@@ -1,6 +1,3 @@
-//! I am borrowing quick sort from Kirill Vasiltsov (jlkiri):
-//! https://www.kirillvasiltsov.com/writing/sorting-algorithms-in-rust/
-//! https://github.com/jlkiri/rust-sorting-algorithms
 use std::{
     sync::{mpsc::Sender, Arc, Condvar, Mutex, MutexGuard},
     thread,
@@ -24,19 +21,21 @@ impl<T: PartialOrd> QuickSorter<T> {
         }
     }
 
-    fn quick_sort_partition<'a>(
+    fn quick_sort<'a>(
         &'a self,
         guard: MutexGuard<'a, Vec<T>>,
-        start: isize,
-        end: isize,
+        start: usize,
+        end: usize,
         sender: &Sender<SortMessage<T>>,
     ) -> MutexGuard<'a, Vec<T>> {
         let mut ret_guard = guard;
-        if start < end && end - start >= 1 {
-            let (guard_ret, pivot) =
-                self.partition(ret_guard, start as isize, end as isize, sender);
-            ret_guard = self.quick_sort_partition(guard_ret, start, pivot - 1, sender);
-            ret_guard = self.quick_sort_partition(ret_guard, pivot + 1, end, sender);
+        if start < end {
+            let (guard_ret, pivot) = self.partition(ret_guard, start, end, sender);
+            ret_guard = guard_ret;
+            if pivot != 0 {
+                ret_guard = self.quick_sort(ret_guard, start, pivot - 1, sender);
+            }
+            ret_guard = self.quick_sort(ret_guard, pivot + 1, end, sender);
         }
         ret_guard
     }
@@ -44,28 +43,43 @@ impl<T: PartialOrd> QuickSorter<T> {
     fn partition<'a>(
         &'a self,
         mut guard: MutexGuard<'a, Vec<T>>,
-        l: isize,
-        h: isize,
+        l: usize,
+        r: usize,
         sender: &Sender<SortMessage<T>>,
-    ) -> (MutexGuard<'a, Vec<T>>, isize) {
-        let mut i = l - 1; // Index of the smaller element
-        for j in l..h {
-            if guard[j as usize] <= guard[h as usize] {
-                i = i + 1;
-                guard.swap(i as usize, j as usize);
-                let message = SortMessage {
-                    id: self.id,
-                    name: "quick_sort",
-                    data: self.data.clone(),
-                    condvar: self.condvar.clone(),
-                };
-                sender.send(message).unwrap();
-                guard = self.condvar.wait(guard).unwrap();
-                thread::sleep(SLEEP_DURATION);
+    ) -> (MutexGuard<'a, Vec<T>>, usize) {
+        let mut i = l;
+        let mut j = r + 1;
+
+        loop {
+            loop {
+                i += 1;
+                if !(i <= r && guard[i] <= guard[l]) {
+                    break;
+                }
             }
+            loop {
+                j -= 1;
+                if !(guard[j] > guard[l]) {
+                    break;
+                }
+            }
+            if i >= j {
+                break;
+            }
+
+            guard.swap(i, j);
+            let message = SortMessage {
+                id: self.id,
+                name: "quick_sort",
+                data: self.data.clone(),
+                condvar: self.condvar.clone(),
+            };
+            sender.send(message).unwrap();
+            guard = self.condvar.wait(guard).unwrap();
+            thread::sleep(SLEEP_DURATION);
         }
-        // println!("2swap {} and {}", i + 1, h);
-        guard.swap((i + 1) as usize, h as usize);
+
+        guard.swap(l, j);
         let message = SortMessage {
             id: self.id,
             name: "quick_sort",
@@ -76,7 +90,7 @@ impl<T: PartialOrd> QuickSorter<T> {
         guard = self.condvar.wait(guard).unwrap();
         thread::sleep(SLEEP_DURATION);
 
-        (guard, i + 1)
+        (guard, j)
     }
 }
 
@@ -92,8 +106,11 @@ impl<T: PartialOrd> SortRunner<T> for QuickSorter<T> {
         sender.send(message).unwrap();
         data = self.condvar.wait(data).unwrap();
 
+        if data.len() == 0 {
+            return;
+        }
         let start = 0;
         let end = data.len() - 1;
-        let _no = self.quick_sort_partition(data, start, end as isize, &sender);
+        let _no = self.quick_sort(data, start, end, &sender);
     }
 }

@@ -1,4 +1,8 @@
-use std::{env::args, fs, process::exit};
+use std::{
+    env::{self, args},
+    fs,
+    process::exit,
+};
 
 use racing_sorts::{racer::sort_manager, screen::ScreenManager, sorts::KNOWN_SORTS};
 
