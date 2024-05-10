@@ -1,6 +1,10 @@
-use std::sync::{mpsc::Sender, Arc, Condvar, Mutex};
+use std::{
+    sync::{mpsc::Sender, Arc, Condvar, Mutex},
+    thread,
+    time::Duration,
+};
 
-use crate::racer::{SortMessage, SortRunner};
+use crate::racer::{SortMessage, SortRunner, SLEEP_DURATION};
 
 pub struct SelectionSorter<T: PartialOrd> {
     data: Arc<Mutex<Vec<T>>>,
@@ -24,6 +28,7 @@ impl<T: PartialOrd> SortRunner<T> for SelectionSorter<T> {
         let mut data = self.data.lock().unwrap();
         let message = SortMessage {
             id: self.id,
+            name: "selection_sort",
             data: self.data.clone(),
             condvar: self.condvar.clone(),
         };
@@ -41,10 +46,12 @@ impl<T: PartialOrd> SortRunner<T> for SelectionSorter<T> {
             let message = SortMessage {
                 id: self.id,
                 data: self.data.clone(),
+                name: "selection_sort",
                 condvar: self.condvar.clone(),
             };
             sender.send(message).unwrap();
             data = self.condvar.wait(data).unwrap();
+            thread::sleep(SLEEP_DURATION);
         }
     }
 }

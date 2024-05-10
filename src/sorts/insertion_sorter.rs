@@ -1,6 +1,10 @@
-use std::sync::{mpsc::Sender, Arc, Condvar, Mutex};
+use std::{
+    sync::{mpsc::Sender, Arc, Condvar, Mutex},
+    thread,
+    time::Duration,
+};
 
-use crate::racer::{SortMessage, SortRunner};
+use crate::racer::{SortMessage, SortRunner, SLEEP_DURATION};
 
 pub struct InsertionSorter<T: PartialOrd> {
     data: Arc<Mutex<Vec<T>>>,
@@ -25,6 +29,7 @@ impl<T: PartialOrd> SortRunner<T> for InsertionSorter<T> {
         let message = SortMessage {
             id: self.id,
             data: self.data.clone(),
+            name: "insertion_sort",
             condvar: self.condvar.clone(),
         };
         sender.send(message).unwrap();
@@ -36,14 +41,15 @@ impl<T: PartialOrd> SortRunner<T> for InsertionSorter<T> {
                     // I must use swap because I cannot move the elements out of
                     // my vector.
                     data.swap(j - 1, j);
-
                     let message = SortMessage {
                         id: self.id,
                         data: self.data.clone(),
+                        name: "insertion_sort",
                         condvar: self.condvar.clone(),
                     };
                     sender.send(message).unwrap();
                     data = self.condvar.wait(data).unwrap();
+                    thread::sleep(SLEEP_DURATION);
                 } else {
                     break;
                 }

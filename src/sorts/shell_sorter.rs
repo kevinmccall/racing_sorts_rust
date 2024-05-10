@@ -1,6 +1,10 @@
-use std::sync::{mpsc::Sender, Arc, Condvar, Mutex};
+use std::{
+    sync::{mpsc::Sender, Arc, Condvar, Mutex},
+    thread,
+    time::Duration,
+};
 
-use crate::racer::{SortMessage, SortRunner};
+use crate::racer::{SortMessage, SortRunner, SLEEP_DURATION};
 
 // Knuth's recommended increments
 const H: [usize; 8] = [3280, 1093, 364, 121, 40, 13, 4, 1];
@@ -29,6 +33,7 @@ impl<T: PartialOrd> SortRunner<T> for ShellSorter<T> {
         let message = SortMessage {
             id: self.id,
             data: self.data.clone(),
+            name: "shell_sort",
             condvar: self.condvar.clone(),
         };
         sender.send(message).unwrap();
@@ -44,10 +49,12 @@ impl<T: PartialOrd> SortRunner<T> for ShellSorter<T> {
                     let message = SortMessage {
                         id: self.id,
                         data: self.data.clone(),
+                        name: "shell_sort",
                         condvar: self.condvar.clone(),
                     };
                     sender.send(message).unwrap();
                     data = self.condvar.wait(data).unwrap();
+                    thread::sleep(SLEEP_DURATION);
                 }
             }
         }

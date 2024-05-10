@@ -1,6 +1,10 @@
-use std::sync::{mpsc::Sender, Arc, Condvar, Mutex};
+use std::{
+    sync::{mpsc::Sender, Arc, Condvar, Mutex},
+    thread,
+    time::Duration,
+};
 
-use crate::racer::{SortMessage, SortRunner};
+use crate::racer::{SortMessage, SortRunner, SLEEP_DURATION};
 
 pub struct BubbleSorter<T: PartialOrd> {
     data: Arc<Mutex<Vec<T>>>,
@@ -26,6 +30,7 @@ impl<T: PartialOrd> SortRunner<T> for BubbleSorter<T> {
             id: self.id,
             data: self.data.clone(),
             condvar: self.condvar.clone(),
+            name: "bubble_sort",
         };
         sender.send(message).unwrap();
         data = self.condvar.wait(data).unwrap();
@@ -38,9 +43,11 @@ impl<T: PartialOrd> SortRunner<T> for BubbleSorter<T> {
                         id: self.id,
                         data: self.data.clone(),
                         condvar: self.condvar.clone(),
+                        name: "bubble_sort",
                     };
                     sender.send(message).unwrap();
                     data = self.condvar.wait(data).unwrap();
+                    thread::sleep(SLEEP_DURATION);
                 }
             }
         }

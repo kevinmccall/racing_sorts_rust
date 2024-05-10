@@ -50,6 +50,7 @@ impl<T: PartialOrd> QuickSorter<T> {
                 guard.swap(i as usize, j as usize);
                 let message = SortMessage {
                     id: self.id,
+                    name: "quick_sort",
                     data: self.data.clone(),
                     condvar: self.condvar.clone(),
                 };
@@ -61,6 +62,7 @@ impl<T: PartialOrd> QuickSorter<T> {
         guard.swap((i + 1) as usize, h as usize);
         let message = SortMessage {
             id: self.id,
+            name: "quick_sort",
             data: self.data.clone(),
             condvar: self.condvar.clone(),
         };
@@ -77,6 +79,7 @@ impl<T: PartialOrd> SortRunner<T> for QuickSorter<T> {
         let message = SortMessage {
             id: self.id,
             data: self.data.clone(),
+            name: "quick_sort",
             condvar: self.condvar.clone(),
         };
         sender.send(message).unwrap();
