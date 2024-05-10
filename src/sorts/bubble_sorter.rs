@@ -16,6 +16,5 @@ pub fn sort<T: PartialOrd>(mut data: Vec<T>, manager: SortBase<T>) -> Vec<T> {
             }
         }
     }
-
     data
 }

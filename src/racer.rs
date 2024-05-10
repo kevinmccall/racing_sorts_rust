@@ -23,7 +23,7 @@ pub trait SortRunner<T: PartialOrd> {
 
 pub struct SortMessage<T> {
     pub id: u8,
-    pub data: Arc<OnceLock<Vec<T>>>,
+    pub data: Arc<Mutex<OnceLock<Vec<T>>>>,
     pub condvar: Arc<Condvar>,
 }
 
@@ -43,11 +43,11 @@ impl<T: PartialOrd> SortBase<T> {
     }
 
     pub fn send_update(&self, data: Vec<T>) -> Vec<T> {
-        let mut shared = Arc::new({
+        let shared = Arc::new(Mutex::new({
             let lock = OnceLock::new();
             lock.set(data);
             lock
-        });
+        }));
         let message = SortMessage {
             id: self.id,
             data: shared.clone(),
@@ -55,15 +55,16 @@ impl<T: PartialOrd> SortBase<T> {
         };
         self.sender.send(message).unwrap();
         thread::sleep(SLEEP_DURATION);
-        shared.take().unwrap()
+        let x = shared.lock().unwrap().take().unwrap();
+        x
     }
 }
 
 pub fn test() {
     let manager = ScreenManager::init_screen();
     manager.clear_screen();
-    let mut id = 0;
-    let data = "asngioergnalerkgjreoingoiorjgwil4t".bytes().collect();
+    let id = 0;
+    let data = "zyxwvutsrqponmlkjihgfedcba".bytes().collect();
     let (sender, receiver) = mpsc::channel();
     {
         thread::spawn(move || {
@@ -73,7 +74,8 @@ pub fn test() {
     }
 
     while let Ok(message) = receiver.recv() {
-        let data = message.data.get().unwrap();
+        let data = message.data.lock().unwrap();
+        let data = data.get().unwrap();
         let display = std::str::from_utf8(data).unwrap_or("error");
         // let on_screen = format!("{}, {}: {:?}", message.id, message.name, display);
         let on_screen = format!("{}: {:?}", message.id, display);
