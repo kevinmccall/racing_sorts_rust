@@ -37,18 +37,23 @@ pub fn sort_manager(data: Vec<u8>) {
         let sender = sender.clone();
         let data = data.clone();
         thread::spawn(move || {
-            let sort_runner = ShellSorter::new(data, i);
+            let sort_runner = SelectionSorter::new(data, i);
             sort_runner.sort(sender);
         });
     }
     drop(sender);
 
+    let mut counter = 0u32;
+
     while let Ok(message) = receiver.recv() {
         let data = message.data.lock().unwrap();
         let display = std::str::from_utf8(&data).unwrap_or("error");
         let on_screen = format!("{}: {:?}", message.id, display);
-        // manager.string_at_pos(&on_screen, message.id as u32, 0);
-        println!("{}", on_screen);
+        thread::sleep(Duration::from_millis(2));
+        manager.string_at_pos(&on_screen, message.id as u32, 0);
+        // println!("{}", on_screen);
+        counter += 1;
         message.condvar.notify_one();
     }
+    eprintln!("\n{} swaps conducted", counter);
 }

@@ -4,7 +4,7 @@ use crate::racer::{SortMessage, SortRunner};
 
 // Knuth's recommended increments
 const H: [usize; 8] = [3280, 1093, 364, 121, 40, 13, 4, 1];
-const SMAX: usize = 7;
+// const H: [usize; 1] = [1]; //insertion sort
 
 pub struct ShellSorter<T: PartialOrd> {
     data: Arc<Mutex<Vec<T>>>,
@@ -34,13 +34,13 @@ impl<T: PartialOrd> SortRunner<T> for ShellSorter<T> {
         sender.send(message).unwrap();
         data = self.condvar.wait(data).unwrap();
 
-        for s in 0..=SMAX {
-            let step = H[s];
-            for j in step..data.len() {
-                let mut i = j - step;
-
-                while data[i] > data[j] {
-                    data.swap(i + step, i);
+        for gap in H {
+            for i in gap..data.len() {
+                for j in (1..=i).rev().step_by(gap) {
+                    if gap > j || data[j - gap] <= data[j] {
+                        break;
+                    }
+                    data.swap(j, j - gap);
                     let message = SortMessage {
                         id: self.id,
                         data: self.data.clone(),
@@ -48,11 +48,6 @@ impl<T: PartialOrd> SortRunner<T> for ShellSorter<T> {
                     };
                     sender.send(message).unwrap();
                     data = self.condvar.wait(data).unwrap();
-                    if i >= step {
-                        i -= step;
-                    } else {
-                        break;
-                    }
                 }
             }
         }

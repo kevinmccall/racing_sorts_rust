@@ -31,7 +31,7 @@ impl<T: PartialOrd> SortRunner<T> for InsertionSorter<T> {
         data = self.condvar.wait(data).unwrap();
 
         for i in 1..data.len() {
-            for j in (2..=i).rev() {
+            for j in (1..=i).rev() {
                 if data[j - 1] > data[j] {
                     // I must use swap because I cannot move the elements out of
                     // my vector.
