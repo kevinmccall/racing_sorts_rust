@@ -1,6 +1,12 @@
-use std::sync::{mpsc::Sender, Arc, Condvar, Mutex, MutexGuard};
+//! I am borrowing quick sort from Kirill Vasiltsov (jlkiri):
+//! https://www.kirillvasiltsov.com/writing/sorting-algorithms-in-rust/
+//! https://github.com/jlkiri/rust-sorting-algorithms
+use std::{
+    sync::{mpsc::Sender, Arc, Condvar, Mutex, MutexGuard},
+    thread,
+};
 
-use crate::racer::{SortMessage, SortRunner};
+use crate::racer::{SortMessage, SortRunner, SLEEP_DURATION};
 
 pub struct QuickSorter<T: PartialOrd> {
     data: Arc<Mutex<Vec<T>>>,
@@ -46,7 +52,6 @@ impl<T: PartialOrd> QuickSorter<T> {
         for j in l..h {
             if guard[j as usize] <= guard[h as usize] {
                 i = i + 1;
-                // println!("1swap {} and {}", i, j);
                 guard.swap(i as usize, j as usize);
                 let message = SortMessage {
                     id: self.id,
@@ -56,6 +61,7 @@ impl<T: PartialOrd> QuickSorter<T> {
                 };
                 sender.send(message).unwrap();
                 guard = self.condvar.wait(guard).unwrap();
+                thread::sleep(SLEEP_DURATION);
             }
         }
         // println!("2swap {} and {}", i + 1, h);
@@ -68,6 +74,7 @@ impl<T: PartialOrd> QuickSorter<T> {
         };
         sender.send(message).unwrap();
         guard = self.condvar.wait(guard).unwrap();
+        thread::sleep(SLEEP_DURATION);
 
         (guard, i + 1)
     }

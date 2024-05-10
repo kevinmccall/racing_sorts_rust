@@ -15,8 +15,6 @@ use crate::sorts::is_sort_valid;
 
 pub const SLEEP_DURATION: Duration = Duration::from_millis(20);
 
-/// I am borrowing some sorts from the internet: https://www.kirillvasiltsov.com/writing/sorting-algorithms-in-rust/
-
 pub trait SortRunner<T: PartialOrd> {
     fn sort(&self, sender: Sender<SortMessage<T>>);
 }
